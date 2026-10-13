@@ -117,6 +117,7 @@ $('#f').addEventListener('submit', async (e) => {
   if (!url) return;
   $('#go').disabled = true;
   out.innerHTML = '<div class="loading">Reading ' + esc(url) + ' <i></i></div>';
+  const slow = setTimeout(() => { const l = out.querySelector('.loading'); if (l) l.insertAdjacentHTML('beforeend', '<div style="margin-top:8px">Waking the scanner up. The first scan can take up to a minute.</div>'); }, 6000);
   try {
     const r = await fetch('/api/scan?url=' + encodeURIComponent(url));
     const d = await r.json();
@@ -127,6 +128,7 @@ $('#f').addEventListener('submit', async (e) => {
   } catch (err) {
     out.innerHTML = '<div class="err">' + esc(err.message) + '</div>';
   } finally {
+    clearTimeout(slow);
     $('#go').disabled = false;
   }
 });

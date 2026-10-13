@@ -215,6 +215,10 @@ async function scan(input) {
   const bundleMailtos = [...bundle.matchAll(/mailto:([^"'`\s?)]+)/gi)].map((m) => m[1]).join(' ');
   const email = mailtoAddr || findEmail(visible, bundleMailtos, bundle);
 
+  // --- phone (tel: links in page or app code)
+  const telRaw = (html.match(/href=["']tel:([^"']+)["']/i) || bundle.match(/tel:([+\d][\d\s().+-]{6,20}\d)/i) || [])[1] || null;
+  const phone = telRaw ? decodeURIComponent(telRaw).replace(/[^\d+]/g, '') : null;
+
   // --- data collection
   const collects =
     /<input[^>]+type=["']?(email|password|tel)/i.test(html) ||
@@ -285,7 +289,7 @@ async function scan(input) {
   return {
     url: finalUrl, title, reachable: true, score, failed, grade: score >= 90 ? 'A' : score >= 75 ? 'B' : score >= 55 ? 'C' : score >= 35 ? 'D' : 'F',
     platform, vibeCoded, spa: isSpa, collectsData: collects, kidsSignals: kids,
-    trackers: det.trackers, email, checks, ms: Date.now() - started,
+    trackers: det.trackers, email, phone, checks, ms: Date.now() - started,
   };
 }
 
