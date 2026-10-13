@@ -133,7 +133,15 @@ const KIDS =
 const PRIVACY_LINK = /privacy|datenschutz|privacidad|confidentialit/i;
 const TERMS_LINK = /terms|conditions|\btos\b|legal|nutzungsbedingungen|agb|términos/i;
 const CONTACT_LINK = /contact|support|help|get in touch|about/i;
-const EMAIL_RE = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
+const EMAIL_RE = /[A-Z0-9._%+-]+@[A-Z0-9-]+(?:\.[A-Z0-9-]+)*\.[A-Z]{2,24}\b/gi;
+const BAD_EMAIL = /example\.|sentry|@types|wixpress|domain\.com|email\.com|yourdomain|yoursite|company\.com|test@|user@|name@|john@|jane@|\.(png|jpe?g|svg|webp|gif)$/i;
+function findEmail(...texts) {
+  for (const t of texts) {
+    for (const m of t.matchAll(EMAIL_RE)) { if (!BAD_EMAIL.test(m[0])) return m[0]; }
+  }
+  return null;
+}
+const KIDS_STRONG = /\b(for kids|kids'? (games|app|learning|activities)|for children|children'?s (games|app|learning)|preschool|kindergarten|for toddlers)\b/i;
 
 function detectAll(text) {
   const trackers = TRACKERS.filter(([, re]) => re.test(text)).map(([n]) => n);
@@ -150,6 +158,10 @@ async function scan(input) {
   }
   const finalUrl = home.url || url;
   const html = home.text;
+  const pageTitle = (html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1] || '';
+  if (home.status === 404 || /^\s*(website|site|page) not found/i.test(pageTitle) || /deployment not found|this site can.t be reached|site not found/i.test(pageTitle)) {
+    return { url: finalUrl, reachable: false, error: 'Site not found or taken down', checks: [], score: null };
+  }
   const visible = stripTags(html);
   const allLinks = links(html, finalUrl);
 
@@ -199,8 +211,9 @@ async function scan(input) {
   // --- contact
   const mailto = allLinks.find((l) => /^mailto:/i.test(l.raw));
   const contactLink = allLinks.find((l) => /contact|support/i.test(l.text) || /\/(contact|support)/i.test(l.raw));
-  const emailMatch = (visible.match(EMAIL_RE) || bundle.match(/mailto:([^"'`\s]+)/i) || [])[0] || null;
-  const email = mailto ? mailto.raw.replace(/^mailto:/i, '').split('?')[0] : emailMatch ? emailMatch.replace(/^mailto:/i, '') : null;
+  const mailtoAddr = mailto ? findEmail(decodeURIComponent(mailto.raw)) : null;
+  const bundleMailtos = [...bundle.matchAll(/mailto:([^"'`\s?)]+)/gi)].map((m) => m[1]).join(' ');
+  const email = mailtoAddr || findEmail(visible, bundleMailtos, bundle);
 
   // --- data collection
   const collects =
@@ -208,7 +221,7 @@ async function scan(input) {
     /type:\s*["'](email|password)["']|type=\\?["'](email|password)/i.test(bundle) ||
     /supabase|firebase|clerk|auth0|stripe\.com\/v3|signInWith|signUp|createUserWithEmail/i.test(corpus);
 
-  const kids = KIDS.test(visible) || KIDS.test(bundle.slice(0, 3_000_000));
+  const kids = KIDS.test(visible) || KIDS_STRONG.test(bundle.slice(0, 3_000_000));
 
   const checks = [];
   const add = (id, label, status, weight, detail, fix) => checks.push({ id, label, status, weight, detail, fix });

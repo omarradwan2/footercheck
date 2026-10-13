@@ -7,14 +7,14 @@ const PORT = process.env.PORT || 3000;
 const PUB = path.join(__dirname, 'public');
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon' };
 
-// simple per-IP rate limit: 20 scans / 10 min
+// simple per-IP rate limit: 120 scans / 10 min
 const hits = new Map();
 function limited(ip) {
   const now = Date.now();
   const arr = (hits.get(ip) || []).filter((t) => now - t < 600_000);
   arr.push(now);
   hits.set(ip, arr);
-  return arr.length > 20;
+  return arr.length > 120;
 }
 
 const cache = new Map(); // url -> {at, result}
